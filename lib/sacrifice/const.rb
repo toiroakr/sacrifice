@@ -1,0 +1,1 @@
+GRAPH_API_BASE = 'https://graph.facebook.com'
