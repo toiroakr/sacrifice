@@ -130,11 +130,11 @@ class Users < Thor
 #$1
               Run:
               |
-                fbtu users list-apps --app #{options[:app]} --user #{user.id}
+                sacrifice users list-apps --app #{options[:app]} --user #{user.id}
               |
               then for each of the other apps, run:
               |
-                fbtu apps rm-user --app APP-NAME --user #{user.id}
+                sacrifice apps rm-user --app APP-NAME --user #{user.id}
               |
               Then re-run this command.
           EOMSG

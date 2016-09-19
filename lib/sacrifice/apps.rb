@@ -14,7 +14,7 @@ class Apps < Thor
 
   default_task :list
 
-  desc 'register', 'Tell fbtu about a new application (must already exist on Facebook)'
+  desc 'register', 'Tell sacrifice about a new application (must already exist on Facebook)'
   method_option 'app_id', aliases: %w[-i], :type => :string, :required => true, :banner => 'OpenGraph ID of the app'
   method_option 'app_secret', aliases: %w[-s], :type => :string, :required => true, :banner => 'App\'s secret key'
   method_option 'name', aliases: %w[-n], :type => :string, :required => true, :banner => 'Name of the app (so you don\'t have to remember its ID)'
@@ -24,7 +24,7 @@ class Apps < Thor
     list
   end
 
-  desc 'list', 'List the applications fbtu knows about'
+  desc 'list', 'List the applications sacrifice knows about'
   method_option 'verbose', aliases: %w[-v], :type => :boolean, :banner => 'Show app secret'
 
   def list

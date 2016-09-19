@@ -3,7 +3,7 @@ module Utils
   def find_app!(name)
     app = App.find_by_name(name)
     unless app
-      raise Thor::Error, "Unknown app #{name}. Run 'fbtu apps' to see known apps."
+      raise Thor::Error, "Unknown app #{name}. Run 'sacrifice apps' to see known apps."
     end
     app
   end
