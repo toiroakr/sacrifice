@@ -107,7 +107,6 @@ class Csv
       return false
     end
     result = JSON.parse(Curl.get("#{GRAPH_API_BASE}/#{gender_options[:user]}?fields=gender", {access_token: gender_options[:access_token]}).body_str)
-    puts result
     if result['gender'] == gender_options[:gender]
       return false
     end

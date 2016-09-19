@@ -21,7 +21,7 @@ Or install it yourself as:
 ## Usage
 
     $  sacrifice register -i [OpenGraph ID of the app] -n [Name of the app (so you don't have to remember its ID)] -s [App's secret key]
-    $  sacrifice users generate -f sample.csv
+    $  sacrifice users generate -a [Name of the app you registered] -f [Csv file like below]
 
 _sample.csv_
 ```
