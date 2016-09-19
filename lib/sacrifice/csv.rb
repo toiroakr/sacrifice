@@ -17,13 +17,14 @@ class Csv
       {type: :email, pattern: %r{Email:\s+([\w@¥.]+)}},
       {type: :password, pattern: %r{Password:\s+(\w+)}}
   ]
+  OUTPUT_ORDER = [:app, :id, :name, :gender, :email, :password, :install, :locale, :access_token]
 
   def self.generate app, file
     output = 'sacrificed_' + file
-    headers = nil
-    CSV.read(file, headers: true).each { |data|
-      if headers.nil?
-        headers = CSV.read(file).first { |header| header.to_sym }
+    headers = []
+    CSV.read(file, headers: true, header_converters: :symbol).each { |data|
+      if headers.empty?
+        headers = CSV.read(file).first.map { |header| header.to_sym }
       else
         puts '==================================='
       end
@@ -35,9 +36,9 @@ class Csv
 
       # read option
       headers.each { |option|
-        create_options[option.to_sym] = data[option] if CREATE_OPTIONS.include? option.to_sym
-        gender_options[option.to_sym] = data[option] if :gender == option.to_sym
-        change_options[option.to_sym] = data[option] if CHANGE_OPTIONS.include? option.to_sym
+        create_options[option] = data[option] if CREATE_OPTIONS.include? option
+        gender_options[option] = data[option] if :gender == option
+        change_options[option] = data[option] if CHANGE_OPTIONS.include? option
       }
 
       # execute create
@@ -49,23 +50,15 @@ class Csv
             GENERATED.each { |item|
               match = line.match item[:pattern]
               if item[:type] == :access_token
-                change_options[:access_token] = match[1] unless match.nil?
-                gender_options[:access_token] = match[1] unless match.nil?
-              else
-                generated[item[:type]] = match[1] unless match.nil?
+                change_options[item[:type]] = match[1] unless match.nil?
+                gender_options[item[:type]] = match[1] unless match.nil?
               end
+              generated[item[:type]] = match[1] unless match.nil?
             }
           }
         }
         gender_options[:user] = generated[:id]
       end while need_retry_for_gender(gender_options)
-      CSV.open(output, 'a') { |line|
-        user = [generated[:id]]
-        data.each { |key, value|
-          user.push value
-        }
-        line << user
-      } unless generated[:id].nil?
 
       # execute change
       if change_options.any?
@@ -79,12 +72,22 @@ class Csv
       puts create_options.merge(change_options).merge(generated).map { |key, value|
         "#{key.upcase} : #{value}"
       }
+
+      CSV.open(output, 'a') { |line|
+        user = []
+        generated.merge(data).sort { |(k1, v1), (k2, v2)|
+          OUTPUT_ORDER.index(k1) - OUTPUT_ORDER.index(k2)
+        }.each { |key, value|
+          user.push value
+        }
+        line << user
+      } unless generated[:id].nil?
     }
   end
 
   def self.erase app, file
     headers = nil
-    CSV.read(file, headers: true).each { |data|
+    CSV.read(file, headers: true, header_converters: :symbol).each { |data|
       if headers.nil?
         headers = CSV.read(file).first { |header| header.to_sym }
       else
