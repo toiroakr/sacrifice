@@ -40,7 +40,7 @@ class Csv
         gender_options[option.to_sym] = data[option] if :gender == option.to_sym
         change_options[option.to_sym] = data[option] if CHANGE_OPTIONS.include? option.to_sym
       }
-      
+
       # execute create
       generated = {}
       begin
