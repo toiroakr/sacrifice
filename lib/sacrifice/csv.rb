@@ -122,7 +122,6 @@ class Csv
       parts.push "--#{option}"
       parts.push "'#{value}'"
     }
-    puts parts.join ' '
     parts.join ' '
   end
 end
