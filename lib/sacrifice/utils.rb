@@ -1,4 +1,5 @@
 require 'rest-client'
+
 module Utils
   def find_app!(name)
     app = App.find_by_name(name)

@@ -3,7 +3,6 @@ require 'sacrifice/cli'
 require 'sacrifice/const'
 require 'csv'
 require 'open5'
-require 'curb'
 require 'json'
 
 class Csv
@@ -62,7 +61,7 @@ class Csv
 
       # execute change
       if change_options.any?
-        result = JSON.parse(Curl.post("#{GRAPH_API_BASE}/#{generated[:id]}", change_options).body_str)
+        result = JSON.parse(RestClient.post("#{GRAPH_API_BASE}/#{generated[:id]}", change_options).body)
         if result['success']
           generated[:password] = change_options[:password]
         else
@@ -107,11 +106,11 @@ class Csv
   private
   def self.need_retry_for_gender gender_options
     if gender_options[:gender].nil?
-      return false
+      return
     end
-    result = JSON.parse(Curl.get("#{GRAPH_API_BASE}/#{gender_options[:user]}?fields=gender", {access_token: gender_options[:access_token]}).body_str)
+    result = JSON.parse(RestClient.get("#{GRAPH_API_BASE}/#{gender_options[:user]}?fields=gender&access_token=#{gender_options[:access_token]}").body)
     if result['gender'] == gender_options[:gender]
-      return false
+      return
     end
     `#{command(:rm, *{app: gender_options[:app], user: gender_options[:user]})}`
     true
