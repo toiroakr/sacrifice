@@ -32,6 +32,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_dependency "thor"
   spec.add_dependency "open5"
+  spec.add_dependency "curb"
   spec.add_dependency "multi_json"
   spec.add_dependency "heredoc_unindent"
   spec.add_dependency "rest-client"
