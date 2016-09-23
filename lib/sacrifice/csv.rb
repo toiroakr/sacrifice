@@ -72,7 +72,7 @@ class Csv
         user.destroy
         puts "remove user ##{user.id}"
       else
-        puts "user ##{user.id} not found"
+        puts "user ##{data[:id]} not found"
       end
     }
   end
