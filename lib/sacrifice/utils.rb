@@ -1,14 +1,6 @@
 require 'rest-client'
 
 module Utils
-  def find_app!(name)
-    app = App.find_by_name(name)
-    unless app
-      raise Thor::Error, "Unknown app #{name}. Run 'sacrifice apps' to see known apps."
-    end
-    app
-  end
-
   def bad_request_message(bad_request)
     response = bad_request.response
     json = JSON.parse(response)

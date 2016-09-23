@@ -1,25 +1,16 @@
-require 'sacrifice'
-require 'sacrifice/cli'
 require 'sacrifice/const'
 require 'csv'
-require 'open5'
 require 'json'
 
 class Csv
-  BASE_COMMAND = 'sacrifice users'
-  CREATE_OPTIONS = [:app, :name, :install, :locale]
-  CHANGE_OPTIONS = [:app, :password]
-  RM_OPTIONS = [:name]
-  GENERATED = [
-      {type: :id, pattern: %r{Login URL:\s+https://developers.facebook.com/checkpoint/test-user-login/(\w+)/}},
-      {type: :access_token, pattern: %r{Access Token:\s+(\w+)}},
-      {type: :email, pattern: %r{Email:\s+([\w@¥.]+)}},
-      {type: :password, pattern: %r{Password:\s+(\w+)}}
-  ]
-  OUTPUT_ORDER = [:app, :id, :name, :gender, :email, :password, :install, :locale, :access_token]
+  CREATE_OPTIONS = [:name, :install, :locale]
+  CHANGE_OPTIONS = [:password]
+  OUTPUT_ORDER = [:id, :email, :password, :login_url, :access_token]
 
-  def self.generate app, file
-    output = 'sacrificed_' + file
+  def self.generate app_name, file
+    app = App.find! app_name
+    output = init_output(app_name, file)
+
     headers = []
     CSV.read(file, headers: true, header_converters: :symbol).each { |data|
       if headers.empty?
@@ -29,100 +20,69 @@ class Csv
       end
 
       # set default options
-      create_options = {app: app, locale: 'ja_JP'}
-      gender_options = {app: app}
+      create_options = {locale: 'ja_JP'}
       change_options = {}
 
       # read option
       headers.each { |option|
         create_options[option] = data[option] if CREATE_OPTIONS.include? option
-        gender_options[option] = data[option] if :gender == option
         change_options[option] = data[option] if CHANGE_OPTIONS.include? option
       }
 
       # execute create
-      generated = {}
+      user = nil
+      # repeat creating and destroying until user who has target gender created
       begin
-        generated = {}
-        open5(command(:create, *create_options)) { |i, o, e, t|
-          o.each { |line|
-            GENERATED.each { |item|
-              match = line.match item[:pattern]
-              if item[:type] == :access_token
-                change_options[item[:type]] = match[1] unless match.nil?
-                gender_options[item[:type]] = match[1] unless match.nil?
-              end
-              generated[item[:type]] = match[1] unless match.nil?
-            }
-          }
-        }
-        gender_options[:user] = generated[:id]
-      end while need_retry_for_gender(gender_options)
+        user.destroy if user
+        user = app.create_user(create_options)
+      end while user.invalid_gender(data[:gender])
 
       # execute change
-      if change_options.any?
-        result = JSON.parse(RestClient.post("#{GRAPH_API_BASE}/#{generated[:id]}", change_options).body)
-        if result['success']
-          generated[:password] = change_options[:password]
-        else
-          puts "Failed to update password to #{change_options[:password]}"
-        end
+      if change_options.any? and !user.change(change_options)
+        puts "Failed to update password to #{change_options[:password]}"
       end
-      puts create_options.merge(change_options).merge(generated).map { |key, value|
-        "#{key.upcase} : #{value}"
-      }
 
+      # print created user
+      user_map = user.attrs
+      puts user_map.map { |key, value| "#{key.upcase} : #{value}" }
+
+      # log created user
       CSV.open(output, 'a') { |line|
-        user = []
-        generated.merge(data).sort { |(k1, v1), (k2, v2)|
-          OUTPUT_ORDER.index(k1) - OUTPUT_ORDER.index(k2)
-        }.each { |key, value|
-          user.push value
+        output_line = []
+        OUTPUT_ORDER.each { |key|
+          output_line.push user_map[key]
         }
-        line << user
-      } unless generated[:id].nil?
+        line << output_line
+      } unless user.id.nil?
     }
   end
 
-  def self.erase app, file
-    headers = nil
+  def self.erase app_name, file
+    users = App.find!(app_name).users
+
+    headers = []
     CSV.read(file, headers: true, header_converters: :symbol).each { |data|
-      if headers.nil?
-        headers = CSV.read(file).first { |header| header.to_sym }
-      else
-        puts '==================================='
+      if headers.empty?
+        headers = CSV.read(file).first.map { |header| header.to_sym }
       end
-
-      # set default options
-      rm_options = {app: app}
-
-      # read option
-      headers.each { |option|
-        rm_options[option.to_sym] = data[option] if RM_OPTIONS.include? option.to_sym
+      user = users.find { |user|
+        user.id.to_s == data[:id].to_s
       }
+      if user
+        user.destroy
+        puts "remove user ##{user.id}"
+      else
+        puts "user ##{user.id} not found"
+      end
     }
   end
 
-  private
-  def self.need_retry_for_gender gender_options
-    if gender_options[:gender].nil?
-      return
-    end
-    result = JSON.parse(RestClient.get("#{GRAPH_API_BASE}/#{gender_options[:user]}?fields=gender&access_token=#{gender_options[:access_token]}").body)
-    if result['gender'] == gender_options[:gender]
-      return
-    end
-    `#{command(:rm, *{app: gender_options[:app], user: gender_options[:user]})}`
-    true
-  end
-
-  private
-  def self.command type, *options
-    parts = [BASE_COMMAND, type.to_s]
-    options.map { |option, value|
-      parts.push "--#{option}"
-      parts.push "'#{value}'"
-    }
-    parts.join ' '
+  def self.init_output(app_name, file)
+    output = "sacrificed_#{app_name}_#{file}"
+    File.open(output, 'a').close
+    output_file = File.open(output, 'r')
+    CSV.open(output, 'a') { |line| line << OUTPUT_ORDER } if output_file.size == 0
+    output_file.close
+    output
   end
 end

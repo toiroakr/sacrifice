@@ -1,10 +1,8 @@
 require 'thor'
-require 'sacrifice/utils'
+require 'sacrifice/csv'
 require 'sacrifice/user'
-require 'sacrifice/db'
 
 class Users < Thor
-  include Utils
 
   check_unknown_options!
 
@@ -16,7 +14,7 @@ class Users < Thor
   method_option 'app', :aliases => %w[-a], :type => :string, :required => true, :banner => 'Name of the app'
 
   def list
-    app = find_app!(options[:app])
+    app = App.find!(options[:app])
     if app.users.any?
       shell.print_table([
                             ['User ID', 'Access Token', 'Login URL'],
@@ -40,11 +38,9 @@ class Users < Thor
                 :banner => 'the locale for the test user'
 
   def create
-    app = find_app!(options[:app])
+    app = App.find!(options[:app])
     attrs = options.select { |k, v| %w(name installed locale).include? k.to_s }
-    user = handle_bad_request do
-      app.create_user(attrs)
-    end
+    user = app.create_user(attrs)
     if user
       puts "User ID:      #{user.id}"
       puts "Access Token: #{user.access_token}"
@@ -60,19 +56,15 @@ class Users < Thor
   method_option 'user2', :aliases => %w[-2 -u2], :type => :string, :required => true, :banner => 'Second user ID'
 
   def friend
-    app = find_app!(options[:app])
-    users = app.users
-    u1 = users.find { |u| u.id.to_s == options[:user1] } or \
-          raise Thor::Error, "No user found w/id #{options[:user1].inspect}"
-    u2 = users.find { |u| u.id.to_s == options[:user2] } or \
-          raise Thor::Error, "No user found w/id #{options[:user2].inspect}"
+    users = App.find!(options[:app]).users
 
-    # The first request is just a request; the second request
-    # accepts the first request.
-    handle_bad_request do
-      u1.send_friend_request_to(u2)
-      u2.send_friend_request_to(u1)
-    end
+    friends = []
+    [options[:user1], options[:user2]].each { |user|
+      friends.push (users.find { |u| u.id.to_s == user } or raise Thor::Error, "No user found w/id #{user.inspect}")
+    }
+
+    # The first request is just a request, the second request accepts the first request.
+    friends.each_index { |idx| friends[idx].send_friend_request_to[(idx + 1) % 2] }
   end
 
   desc 'change', 'Change a test user\'s name and/or password'
@@ -86,19 +78,13 @@ class Users < Thor
                 :banner => 'New password for the user'
 
   def change
-    app = find_app!(options[:app])
-    user = app.users.find do |user|
-      user.id.to_s == options[:user].to_s
-    end
+    user = App.find!(options[:app]).find_user(options[:user])
 
     puts user
 
     if user
-      response = handle_bad_request do
-        user.change(options)
-      end
-      puts response
-      if response == 'true'
+      success = user.change(options)
+      if success
         puts 'Successfully changed user'
       else
         puts 'Failed to change user'
@@ -113,15 +99,10 @@ class Users < Thor
   method_option 'user', :banner => 'ID of the user to remove', :aliases => %w[-u], :type => :string, :required => true
 
   def rm
-    app = find_app!(options[:app])
-    user = app.users.find do |user|
-      user.id.to_s == options[:user].to_s
-    end
+    user = App.find!(options[:app]).find_user(options[:user])
 
     if user
-      result = handle_bad_request(raise_error=false) do
-        user.destroy
-      end
+      result = user.destroy
       if result
         puts "User ID #{user.id} removed"
       else
@@ -152,49 +133,28 @@ class Users < Thor
   method_option 'app', :aliases => %w[-a], :type => :string, :required => true, :banner => 'Name of the app'
 
   def destroy
-    app = find_app!(options[:app])
-    app.users.each(&:destroy)
+    app = App.find!(options[:app])
+    while (users = app.users).size > 0
+      users.each { |user|
+        user.destroy
+        puts "remove user ##{user.id}"
+      }
+    end
   end
 
   desc 'generate', 'Generate facebook test users'
   method_option 'app', aliases: %w[-a], type: :string, banner: 'app name that test user generate on' #, required: true
-  # method_option 'type', aliases: %w[-t], required: true, type: :string, enum: ['csv'], banner: 'generate type'
-  # method_option 'num', aliases: %w[-n], type: :string, banner: 'number of generate test users'
   method_option 'file', aliases: %w[-f], type: :string, banner: 'csv file to read (required in type csv)', required: true
-  # method_option 'pattern', aliases: %w[-p], type: :string,
-  #               banner: 'Pattern of user name (required in type pattern) : ex. \'Test {} User\' creates test users [\'Test a User\'\, .. \'Test z User\', \'Test A User\'\, .. \'Test Z User\', \'Test aa User\'\, ..]'
 
   def generate
-    # case options[:type].to_sym
-    #   when :csv then
-    #     if options[:file].nil?
-    #       raise Thor::Error, 'option --file is required in type \'csv\''
-    #     end
     Csv.generate options[:app], options[:file]
-    # when :pattern then
-    # else
-    #   raise Thor::Error, "undefind type '#{options[:type]}'"
-    # end
   end
 
   desc 'erase', 'Erase facebook test users'
   method_option 'app', aliases: %w[-a], type: :string, banner: 'app name that test user erase on' #, required: true
-  # method_option 'type', aliases: %w[-t], required: true, type: :string, enum: ['csv'], banner: 'erase type'
-  # method_option 'num', aliases: %w[-n], type: :string, banner: 'number of generate test users'
   method_option 'file', aliases: %w[-f], type: :string, banner: 'file generated by command \'generate\' (required in type csv)', required: true
-  # method_option 'pattern', aliases: %w[-p], type: :string,
-  #               banner: 'Pattern of user name (required in type pattern) : ex. \'Test {} User\' creates test users [\'Test a User\'\, .. \'Test z User\', \'Test A User\'\, .. \'Test Z User\', \'Test aa User\'\, ..]'
 
   def erase
-    # case options[:type].to_sym
-    #   when :csv then
-    # if options[:file].nil?
-    #   raise Thor::Error, 'option --file is required in type \'csv\''
-    # end
     Csv.erase options[:app], options[:file]
-    # when :pattern then
-    # else
-    #   raise Thor::Error, "undefind type '#{options[:type]}'"
-    # end
   end
-end # Users
+end

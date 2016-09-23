@@ -1,6 +1,5 @@
 require 'sacrifice'
 require 'thor'
-require 'heredoc_unindent'
 require 'sacrifice/csv'
 require 'sacrifice/apps'
 require 'sacrifice/users'

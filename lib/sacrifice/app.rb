@@ -1,8 +1,9 @@
 require 'sacrifice/const'
 require 'sacrifice/access_token'
-require 'multi_json'
+require 'sacrifice/utils'
 
 class App
+  include Utils
 
   attr_reader :name, :id, :secret
 
@@ -29,23 +30,27 @@ class App
   end
 
   def users
-    users_data = RestClient.get(users_url, params: {
-        access_token: access_token
-    })
+    handle_bad_request do
+      users_data = RestClient.get(users_url, params: {access_token: access_token})
 
-    MultiJson.decode(users_data)["data"].map do |user_data|
-      User.new(user_data)
+      JSON.parse(users_data)["data"].map do |user_data|
+        User.new(user_data)
+      end
     end
   end
 
   def create_user(options = {})
-    user_data = RestClient.post(users_url, {access_token: access_token}.merge(options))
-    User.new(MultiJson.decode(user_data))
+    handle_bad_request do
+      user_data = RestClient.post(users_url, {access_token: access_token}.merge(options))
+      User.new(JSON.parse(user_data))
+    end
   end
 
   def rm_user(uid)
-    url = rm_user_url(uid, access_token)
-    RestClient.delete(url)
+    handle_bad_request do
+      url = rm_user_url(uid, access_token)
+      RestClient.delete(url)
+    end
   end
 
   ## query methods
@@ -68,11 +73,11 @@ class App
   private
 
   def users_url
-    GRAPH_API_BASE + "/#{id}/accounts/test-users"
+    "#{GRAPH_API_BASE}/#{id}/accounts/test-users"
   end
 
   def rm_user_url(uid, token)
-    users_url + "?uid=#{uid}&access_token=#{URI.escape(token)}"
+    "#{users_url}?uid=#{uid}&access_token=#{URI.escape(token)}"
   end
 
   def validate!
@@ -87,5 +92,19 @@ class App
     unless secret && secret =~ /^[0-9a-f]+$/i
       raise ArgumentError, "App secret must be a nonempty hex string, but was #{secret.inspect}"
     end
+  end
+
+  def self.find!(name)
+    app = App.find_by_name(name)
+    unless app
+      raise Thor::Error, "Unknown app #{name}. Run 'sacrifice apps' to see known apps."
+    end
+    app
+  end
+
+  def find_user(user_id)
+    users.find { |user|
+      user.id.to_s == user_id.to_s
+    }
   end
 end
