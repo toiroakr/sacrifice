@@ -38,7 +38,9 @@ class Csv
       end while user.invalid_gender(data[:gender])
 
       # execute change
-      if change_options.any? and !user.change(change_options)
+      if change_options.any? and user.change(change_options)
+        user.password = change_options[:password] if change_options[:password]
+      else
         puts "Failed to update password to #{change_options[:password]}"
       end
 
