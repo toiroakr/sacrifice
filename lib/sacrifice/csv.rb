@@ -11,12 +11,7 @@ class Csv
     app = App.find! app_name
     output = init_output(app_name, file)
 
-    friends = []
-    if friends_file
-      CSV.read(friends_file, headers: true, header_converters: :symbol).each { |data|
-        friends.push app.find_user(data[:id])
-      }
-    end
+    friends = ids(friends_file)
 
     headers = []
     CSV.read(file, headers: true, header_converters: :symbol).each { |data|
@@ -66,11 +61,7 @@ class Csv
       } unless user.id.nil?
 
       user = app.find_user(user.id)
-      if friends.any?
-        friends.each { |friend|
-          user.send_friend_request_to(friend)
-        }
-      end
+      friends user, friends
     }
   end
 
@@ -92,6 +83,23 @@ class Csv
         puts "user ##{data[:id]} not found"
       end
     }
+  end
+
+  def self.ids app, csv_file
+    ids = []
+    CSV.read(csv_file, headers: true, header_converters: :symbol).each { |data|
+      ids.push app.find_user(data[:id]) or raise Thor::Error, "No user found w/id #{user.inspect}"
+    } if csv_file
+    ids
+  end
+
+  def self.friends user, friends
+    if friends.any?
+      friends.each { |friend|
+        user.send_friend_request_to(friend)
+        friend.send_friend_request_to(user)
+      }
+    end
   end
 
   def self.init_output(app_name, file)
