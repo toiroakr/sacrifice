@@ -64,7 +64,7 @@ class Users < Thor
     }
 
     # The first request is just a request, the second request accepts the first request.
-    friends.each_index { |idx| friends[idx].send_friend_request_to[(idx + 1) % 2] }
+    friends.each_index { |idx| friends[idx].send_friend_request_to(friends[(idx + 1) % 2]) }
   end
 
   desc 'change', 'Change a test user\'s name and/or password'
@@ -145,9 +145,10 @@ class Users < Thor
   desc 'generate', 'Generate facebook test users'
   method_option 'app', aliases: %w[-a], type: :string, banner: 'app name that test user generate on' #, required: true
   method_option 'file', aliases: %w[-f], type: :string, banner: 'csv file to read (required in type csv)', required: true
+  method_option 'friends', type: :string, banner: 'csv file that include friend ids for generated users(required in type csv)'
 
   def generate
-    Csv.generate options[:app], options[:file]
+    Csv.generate options[:app], options[:file], options[:friends]
   end
 
   desc 'erase', 'Erase facebook test users'

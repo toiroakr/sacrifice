@@ -70,6 +70,12 @@ class App
     @access_token ||= AccessToken.get(id, secret)
   end
 
+  def find_user(user_id)
+    users.find { |user|
+      user.id.to_s == user_id.to_s
+    }
+  end
+
   private
 
   def users_url
@@ -100,11 +106,5 @@ class App
       raise Thor::Error, "Unknown app #{name}. Run 'sacrifice apps' to see known apps."
     end
     app
-  end
-
-  def find_user(user_id)
-    users.find { |user|
-      user.id.to_s == user_id.to_s
-    }
   end
 end

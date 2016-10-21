@@ -5,11 +5,18 @@ require 'json'
 class Csv
   CREATE_OPTIONS = [:name, :install, :locale]
   CHANGE_OPTIONS = [:password]
-  OUTPUT_ORDER = [:id, :email, :password, :login_url, :access_token]
+  OUTPUT_ORDER = [:id, :name, :email, :password, :login_url, :access_token]
 
-  def self.generate app_name, file
+  def self.generate app_name, file, friends_file
     app = App.find! app_name
     output = init_output(app_name, file)
+
+    friends = []
+    if friends_file
+      CSV.read(friends_file, headers: true, header_converters: :symbol).each { |data|
+        friends.push app.find_user(data[:id])
+      }
+    end
 
     headers = []
     CSV.read(file, headers: true, header_converters: :symbol).each { |data|
@@ -40,12 +47,13 @@ class Csv
       # execute change
       if change_options.any? and user.change(change_options)
         user.password = change_options[:password] if change_options[:password]
-      else
+      elsif change_options[:password]
         puts "Failed to update password to #{change_options[:password]}"
       end
 
       # print created user
       user_map = user.attrs
+      user_map[:name] = create_options[:name] if create_options[:name]
       puts user_map.map { |key, value| "#{key.upcase} : #{value}" }
 
       # log created user
@@ -56,6 +64,13 @@ class Csv
         }
         line << output_line
       } unless user.id.nil?
+
+      user = app.find_user(user.id)
+      if friends.any?
+        friends.each { |friend|
+          user.send_friend_request_to(friend)
+        }
+      end
     }
   end
 
