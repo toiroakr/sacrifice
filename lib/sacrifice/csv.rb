@@ -11,7 +11,7 @@ class Csv
     app = App.find! app_name
     output = init_output(app_name, file)
 
-    friends = ids(friends_file)
+    friends = ids(app, friends_file)
 
     headers = []
     CSV.read(file, headers: true, header_converters: :symbol).each { |data|
